@@ -1,0 +1,27 @@
+{
+    "id": "55B9D2F1",
+    "path": "/Volumes/Stier_Lab/regeneration_wound_respiration/Respirometry/Scripts/PRrates.R",
+    "project_path": "Respirometry/Scripts/PRrates.R",
+    "type": "r_source",
+    "hash": "869039638",
+    "contents": "",
+    "dirty": false,
+    "created": 1704917478826.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "tempName": "Untitled1",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "20,17",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1704928067,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1704928074452,
+    "read_only": false,
+    "read_only_alternatives": []
+}
