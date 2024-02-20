@@ -24,7 +24,7 @@
           |_ 20230603
           |_ 20230619
       |_ Output
-        |_Porites
+        |_ Porites
           |_ Photosynthesis
             |_ 20230526
             |_ 20230528
