@@ -271,7 +271,7 @@ walk2(coral_to_filter, filtered_data_list, ~{
   write.csv(.y, filename, row.names = FALSE)
 })
 ##################### RESPIRATION ############################################## #####
-path.p<-"/Volumes/Stier_Lab/regeneration_wound_respiration/Respirometry/Data/Runs/20230603/Porites"
+path.p<-"/Volumes/Stier_Lab/regeneration_wound_respiration/Respirometry/Data/Runs/20230526/Porites"
 
 #make a list of the respo file names inside intial timepoint folder, n=120
 file.names <- list.files(path = path.p, pattern = "csv$")
@@ -310,7 +310,7 @@ for(i in 1:length(file.names)) { # for every file in list calculate O2 uptake or
   #Save plot prior to and after data thinning to make sure thinning is not too extreme
   rename <- sub(".csv","", file.names[i]) # remove all the extra stuff in the file name
   
-  pdf(paste0("/Volumes/Stier_Lab/regeneration_wound_respiration/Respirometry/Output/Photosynthesis/20230603/",rename,"thinning.pdf")) # open the graphics device
+  pdf(paste0("/Volumes/Stier_Lab/regeneration_wound_respiration/Respirometry/Output/Photosynthesis/20230526/",rename,"thinning.pdf")) # open the graphics device
   
   par(omi=rep(0.3, 4)) #set size of the outer margins in inches
   par(mfrow=c(1,2)) #set number of rows and columns in multi plot graphic
@@ -355,7 +355,7 @@ for(i in 1:length(file.names)) { # for every file in list calculate O2 uptake or
   #Photo.R[i,5] <- PR[j] #stores whether it is photosynthesis or respiration
   
 }
-write.csv(Photosynthesis, '/Volumes/Stier_Lab/regeneration_wound_respiration/Respirometry/Output/Photosynthesis/20230603/Photosynthesis.csv')
+write.csv(Photosynthesis, '/Volumes/Stier_Lab/regeneration_wound_respiration/Respirometry/Output/Photosynthesis/20230526/Photosynthesis.csv')
 
 write.csv(Respiration, '/Volumes/Stier_Lab/regeneration_wound_respiration/Respirometry/Output/Respiration/20230619/Respiration.csv')
           
