@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this dataset or code, please cite it as below."
+title: "Wound-Induced Metabolic Responses in Two Coral Species"
+authors:
+- family-names: "Stier"
+  given-names: "Adrian"
+  affiliation: "University of California Santa Barbara"
+  orcid: "https://orcid.org/0000-0000-0000-0000"
+date-released: 2025-10-29
+version: 1.0.0
+doi: pending
+repository-code: "https://github.com/stier-lab/regeneration_wound_respiration"
+keywords:
+  - coral physiology
+  - wound healing
+  - respirometry
+  - Porites
+  - Acropora
+  - metabolic response
+license: CC-BY-4.0
+abstract: >
+  This repository contains data and analysis code for examining metabolic
+  responses to experimental wounding in two morphologically distinct coral
+  species: Porites spp. (massive morphology) and Acropora pulchra
+  (branching morphology). The experiment was conducted at CRIOBE Research
+  Station, Moorea, French Polynesia over 23 days, measuring respiration
+  and photosynthesis rates at multiple timepoints following experimental
+  wounding.
