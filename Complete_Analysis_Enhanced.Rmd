@@ -537,7 +537,7 @@ ggplot(pr_data, aes(x = timepoint, y = p_to_r_ratio, fill = treatment_label)) +
         axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-We calculated P:R ratios to assess overall metabolic balance. Both species maintained P:R ratios > 1 across most timepoints and treatments, indicating net autotrophy. Treatment effects on P:R ratios were not statistically significant for either species (*Porites*: F₂,₁₀ = 1.34, p = 0.304; *Acropora*: F₂,₈ = 0.92, p = 0.434), suggesting that while respiration increased in wounded colonies, photosynthesis was maintained at sufficient levels to preserve overall energy balance.
+We calculated P:R ratios to assess overall metabolic balance. Both species consistently showed P:R ratios < 1 across timepoints and treatments, indicating net heterotrophy during our measurement periods. This pattern is typical for respirometry chamber measurements where corals are isolated from natural flow conditions and may experience reduced photosynthetic efficiency. Treatment effects on P:R ratios were not statistically significant for either species (*Porites*: F₂,₁₀ = 1.34, p = 0.304; *Acropora*: F₂,₈ = 0.92, p = 0.434). The lack of treatment effect suggests that wound-induced increases in respiration were proportionally matched by changes in photosynthesis, maintaining similar P:R ratios across treatments despite altered absolute metabolic rates.
 
 ## Recovery Assessment
 
@@ -862,6 +862,6 @@ sessionInfo()
 
 <div style="text-align: center; margin-top: 50px; padding: 20px; background-color: #f8f9fa; border-radius: 5px;">
 **Analysis completed:** `r format(Sys.time(), "%B %d, %Y at %I:%M %p")`
-**Location:** CRIOBE Research Station - Moorea, French Polynesia
+**Location:** Gump Research Station - Moorea, French Polynesia
 **Repository:** regeneration_wound_respiration
 </div>
