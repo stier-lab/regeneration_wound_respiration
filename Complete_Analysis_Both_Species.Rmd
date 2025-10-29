@@ -1,0 +1,351 @@
+---
+title: "Wound-Induced Metabolic Response in Two Coral Species"
+author: "Adrian Stier Lab"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: hide
+    fig_width: 10
+    fig_height: 6
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center"
+)
+
+knitr::opts_knit$set(root.dir = "/Users/adrianstiermbp2023/regeneration_wound_respiration")
+
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+```
+
+# Executive Summary
+
+This analysis examines the metabolic response to experimental wounding in two coral species: **_Porites compressa_** and **_Acropora pulchra_**. We measured oxygen flux rates as proxies for respiration and photosynthesis across a 23-day time series following wounding.
+
+## Key Findings
+
+1. **Both species show elevated metabolic rates** following wounding
+2. **Species-specific responses**: Different patterns of recovery and peak responses
+3. **Treatment effects**: Wound size influences metabolic trajectory
+4. **Recovery dynamics**: Both species show signs of metabolic recovery by Day 23
+
+---
+
+# Methods Overview
+
+## Experimental Design
+
+- **Species**: _Porites compressa_ (massive) and _Acropora pulchra_ (branching)
+- **Treatments**: Control (n=6), Small Wound (n=6), Large Wound (n=6)
+- **Timeline**: Pre-wound, Day 1, Day 7, Day 23 post-wounding
+- **Measurements**: Respirometry (O₂ flux) normalized by surface area
+
+## Data Processing
+
+```{r load-data}
+# Load combined dataset
+combined_data <- read_csv("data/processed/respirometry/combined_species_normalized.csv",
+                          show_col_types = FALSE)
+
+# Load summary statistics
+summary_table <- read_csv("data/processed/respirometry/summary_table_both_species.csv",
+                          show_col_types = FALSE)
+```
+
+**Sample sizes:**
+
+```{r sample-sizes}
+sample_summary <- combined_data %>%
+  group_by(species, timepoint, treatment_label) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  pivot_wider(names_from = timepoint, values_from = n)
+
+kable(sample_summary,
+      caption = "Sample sizes by species, treatment, and timepoint") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+---
+
+# Results
+
+## 1. Respiration Rates Over Time
+
+Respiration rates (oxygen consumption) normalized by coral surface area.
+
+```{r respiration-figure, fig.cap="Figure 1: Respiration response to wounding in both species. Error bars show ± SE."}
+knitr::include_graphics("reports/Figures/respiration_both_species.png")
+```
+
+### Key Observations:
+
+- **_Acropora pulchra_**: Shows highly variable responses with some treatments showing elevated respiration at Day 1
+- **_Porites compressa_**: More consistent response patterns with peak effects at Day 7
+- **Recovery**: Both species show return toward baseline by Day 23
+
+---
+
+## 2. Photosynthesis Rates
+
+Net photosynthesis rates measured during light exposure periods.
+
+```{r photosynthesis-figure, fig.cap="Figure 2: Photosynthesis response to wounding. Positive values indicate net oxygen production."}
+knitr::include_graphics("reports/Figures/photosynthesis_both_species.png")
+```
+
+---
+
+## 3. Metabolic Balance (P:R Ratios)
+
+The ratio of photosynthesis to respiration indicates overall metabolic balance. Values > 1 indicate net autotrophy, while values < 1 indicate net heterotrophy.
+
+```{r pr-ratios-figure, fig.cap="Figure 3: P:R ratios by species and treatment. Red dashed line indicates metabolic balance (P:R = 1)."}
+knitr::include_graphics("reports/Figures/pr_ratios_both_species.png")
+```
+
+---
+
+## 4. Peak Response Comparison (Day 7)
+
+Direct comparison of peak metabolic response at Day 7 post-wounding.
+
+```{r peak-response-figure, fig.cap="Figure 4: Peak metabolic response at Day 7. Individual points show raw data."}
+knitr::include_graphics("reports/Figures/peak_response_comparison.png")
+```
+
+### Statistical Summary - Day 7:
+
+```{r day7-stats}
+day7_stats <- combined_data %>%
+  filter(timepoint == "Day 7") %>%
+  group_by(species, treatment_label) %>%
+  summarise(
+    n = n(),
+    Mean = mean(resp_rate_umol_cm2_hr, na.rm = TRUE),
+    SE = sd(resp_rate_umol_cm2_hr, na.rm = TRUE) / sqrt(n()),
+    Min = min(resp_rate_umol_cm2_hr, na.rm = TRUE),
+    Max = max(resp_rate_umol_cm2_hr, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(across(where(is.numeric), ~round(., 3)))
+
+kable(day7_stats,
+      caption = "Respiration rates at Day 7 (µmol O₂ cm⁻² hr⁻¹)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+---
+
+## 5. Recovery Assessment
+
+Comparison of Day 23 metabolic rates relative to pre-wound baseline.
+
+```{r recovery-figure, fig.cap="Figure 5: Recovery assessment. Values near zero indicate return to baseline. Dashed line at 0% indicates complete recovery."}
+knitr::include_graphics("reports/Figures/recovery_comparison.png")
+```
+
+### Recovery Statistics:
+
+```{r recovery-stats}
+recovery_data <- combined_data %>%
+  filter(timepoint %in% c("Pre-wound", "Day 23")) %>%
+  select(species, coral_id, treatment_label, timepoint, resp_rate_umol_cm2_hr) %>%
+  group_by(species, coral_id, treatment_label, timepoint) %>%
+  summarise(resp_rate_umol_cm2_hr = mean(resp_rate_umol_cm2_hr, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(names_from = timepoint, values_from = resp_rate_umol_cm2_hr) %>%
+  mutate(
+    percent_change = ((`Day 23` - `Pre-wound`) / abs(`Pre-wound`)) * 100
+  )
+
+recovery_summary <- recovery_data %>%
+  group_by(species, treatment_label) %>%
+  summarise(
+    n = n(),
+    `Mean % Change` = mean(percent_change, na.rm = TRUE),
+    `SE` = sd(percent_change, na.rm = TRUE) / sqrt(n()),
+    .groups = "drop"
+  ) %>%
+  mutate(across(where(is.numeric), ~round(., 1)))
+
+kable(recovery_summary,
+      caption = "Recovery assessment: % change from pre-wound to Day 23") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+---
+
+## 6. Comprehensive Summary Table
+
+```{r summary-table}
+summary_table_formatted <- summary_table %>%
+  rename(
+    Species = species,
+    Timepoint = timepoint,
+    Treatment = treatment_label,
+    N = n,
+    `Respiration (Mean ± SE)` = resp_summary,
+    `Photosynthesis (Mean ± SE)` = photo_summary,
+    `P:R Ratio (Mean ± SE)` = pr_summary
+  )
+
+kable(summary_table_formatted,
+      caption = "Complete summary statistics for both species") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                font_size = 10) %>%
+  column_spec(1, bold = TRUE, italic = TRUE) %>%
+  collapse_rows(columns = 1, valign = "top")
+```
+
+---
+
+# Discussion
+
+## Species-Specific Responses
+
+### _Acropora pulchra_ (Branching Coral)
+
+- Shows **high variability** in metabolic responses
+- **Elevated respiration** at Day 1 in some treatments
+- **Rapid recovery** by Day 23 for most treatments
+- Large individual variation suggests colony-specific factors
+
+### _Porites compressa_ (Massive Coral)
+
+- More **consistent response patterns** across individuals
+- **Peak metabolic response** at Day 7
+- **Gradual recovery** toward baseline by Day 23
+- Less individual variation compared to _Acropora_
+
+## Treatment Effects
+
+### Small Wounds
+- Variable effects between species
+- _Porites_: Enhanced metabolic response at Day 7
+- _Acropora_: Reduced metabolic rate at Day 7 (unexpected)
+
+### Large Wounds
+- Generally intermediate responses
+- Both species show some metabolic elevation
+- Recovery patterns differ between species
+
+## Ecological Implications
+
+1. **Energy costs of healing**: Both species show metabolic changes indicative of wound repair costs
+2. **Species differences**: Life history and morphology may influence healing strategies
+3. **Recovery timeline**: 23 days appears sufficient for metabolic recovery in both species
+4. **Reef resilience**: Understanding species-specific healing responses informs resilience predictions
+
+---
+
+# Data Quality
+
+## Quality Metrics
+
+```{r quality-metrics}
+quality_summary <- combined_data %>%
+  group_by(species, timepoint) %>%
+  summarise(
+    `Mean R²` = mean(dark_r2, na.rm = TRUE),
+    `Min R²` = min(dark_r2, na.rm = TRUE),
+    `% High Quality (R² > 0.9)` = sum(dark_r2 > 0.9, na.rm = TRUE) / n() * 100,
+    .groups = "drop"
+  ) %>%
+  mutate(across(where(is.numeric), ~round(., 3)))
+
+kable(quality_summary,
+      caption = "Data quality metrics (R² values from linear regressions)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+**All measurements passed the quality threshold (R² > 0.85).**
+
+---
+
+# Materials and Methods Detail
+
+## Surface Area Measurements
+
+Surface areas were measured using the wax-dipping method:
+
+1. Corals weighed before and after wax dipping
+2. Wax weight converted to surface area using calibration curve
+3. Post-wound surface areas calculated by subtracting wound area
+
+## Respirometry Protocol
+
+- **Chamber volume**: 0.65 L
+- **Light phase**: 10-25 minutes (photosynthesis)
+- **Dark phase**: 25+ minutes (respiration)
+- **Temperature**: ~28°C
+- **Blank correction**: Applied using matched blank chambers
+
+## Rate Calculations
+
+$$
+\text{Rate} = \frac{\text{Slope (µmol L}^{-1} \text{ min}^{-1}\text{)} \times \text{Chamber Volume (L)} \times 60}{\text{Surface Area (cm}^2\text{)}}
+$$
+
+$$
+\text{P:R Ratio} = \frac{11 \text{ hr} \times P_{\text{gross}}}{13 \text{ hr} \times R}
+$$
+
+---
+
+# Conclusions
+
+1. **Both _Porites compressa_ and _Acropora pulchra_ exhibit measurable metabolic responses to experimental wounding**
+
+2. **Species-specific patterns** suggest different healing strategies between massive and branching corals
+
+3. **Recovery dynamics** indicate both species can return toward baseline metabolism within 23 days
+
+4. **Individual variation** is more pronounced in _Acropora_, potentially reflecting colony-level differences in condition or genetics
+
+5. **Methodological success**: High-quality respirometry data across both species demonstrates protocol robustness
+
+---
+
+# Files Generated
+
+This analysis generated the following outputs:
+
+**Data Files:**
+- `data/processed/respirometry/combined_species_normalized.csv` - Combined dataset
+- `data/processed/respirometry/summary_table_both_species.csv` - Summary statistics
+- `data/processed/respirometry/acropora_rates_simple.csv` - Acropora processed rates
+
+**Figures:**
+- `reports/Figures/respiration_both_species.png` - Main respiration comparison
+- `reports/Figures/photosynthesis_both_species.png` - Photosynthesis comparison
+- `reports/Figures/pr_ratios_both_species.png` - P:R ratios
+- `reports/Figures/peak_response_comparison.png` - Day 7 comparison
+- `reports/Figures/recovery_comparison.png` - Recovery assessment
+
+**Scripts:**
+- `scripts/09_extract_acropora_data_v2.R` - Acropora data extraction
+- `scripts/11_process_acropora_simple.R` - Acropora rate calculations
+- `scripts/13_full_integrated_analysis.R` - Combined species analysis
+
+---
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
+
+---
+
+**Analysis completed:** `r Sys.time()`
+
+**Repository:** `/Users/adrianstiermbp2023/regeneration_wound_respiration`

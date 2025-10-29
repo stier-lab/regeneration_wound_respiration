@@ -1,0 +1,609 @@
+---
+title: "Wound Effects on Respiration in Porites and Acropora pulchra"
+author: "Regeneration Wound Respiration Project"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: hide
+    theme: flatly
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 6,
+  dpi = 300
+)
+
+# Set root directory for paths
+root_dir <- ifelse(basename(getwd()) == "scripts", "..", ".")
+knitr::opts_knit$set(root.dir = normalizePath(root_dir))
+```
+
+# Overview
+
+This analysis examines the effects of wounding on respiration rates in two coral species:
+- **Porites sp.** (por)
+- **Acropora pulchra** (acr)
+
+**Experimental Design:**
+- 36 total corals (18 per species)
+- 3 treatments per species (n=6 per treatment):
+  - Control (0): No wounding
+  - Wound Type 1 (1): First wound method
+  - Wound Type 2 (2): Second wound method
+- Wound date: 2023-05-27
+- Measurements over 4 timepoints spanning 23 days
+
+**Physiological Measurements:**
+1. Respiration rates (O2 consumption)
+2. Photosynthesis rates (O2 production)
+3. Growth (buoyant weight)
+4. Photosynthetic efficiency (Fv/Fm via PAM fluorometry)
+5. Surface area (wax dipping method)
+
+# Load Libraries and Functions
+
+```{r load_libraries}
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(lmerTest)
+  library(emmeans)
+  library(rstatix)
+  library(janitor)
+  library(ggthemes)
+  library(knitr)
+  library(kableExtra)
+  library(pbkrtest)
+  library(sjPlot)
+  library(cowplot)
+  library(patchwork)
+  library(here)
+})
+
+# Source custom functions (loads remaining packages without conflicts)
+source("scripts/analysis_functions.R")
+
+# Set theme for all plots
+theme_set(theme_few(base_size = 12))
+
+# Define consistent color scheme and labels for all plots
+treatment_colors <- c("0" = "#2E86AB", "1" = "#A23B72", "2" = "#F18F01")
+treatment_labels <- c("0" = "Control", "1" = "Small Wound", "2" = "Large Wound")
+
+# Helper functions that may need Rmisc
+if (!requireNamespace("Rmisc", quietly = TRUE)) {
+  install.packages("Rmisc")
+}
+```
+
+# Load and Prepare Data
+
+## Sample Information
+
+```{r load_sample_info}
+# Load sample metadata
+sample_info <- read_csv("data/metadata/sample_info.csv", show_col_types = FALSE)
+
+# Convert to factors
+sample_info <- sample_info %>%
+  mutate(
+    treatment = as.factor(treatment),
+    genus = as.factor(genus),
+    wound_date = as.Date(as.character(wound_date), format = "%Y%m%d")
+  )
+
+# Summary table
+sample_info %>%
+  group_by(genus, treatment) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  pivot_wider(names_from = treatment, values_from = n, names_prefix = "Treatment_") %>%
+  kable(caption = "Sample sizes by genus and treatment") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+## Growth Data
+
+```{r load_growth}
+# Load processed weight data
+initial_weight <- read_csv("data/processed/growth/initial_weight.csv", show_col_types = FALSE)
+postwound_weight <- read_csv("data/processed/growth/postwound_weight.csv", show_col_types = FALSE)
+day7_weight <- read_csv("data/processed/growth/day7postwound_weight.csv", show_col_types = FALSE)
+final_weight <- read_csv("data/processed/growth/final_weight.csv", show_col_types = FALSE)
+
+# Combine all weights
+growth_data <- initial_weight %>%
+  select(coral_id, species, initial) %>%
+  left_join(postwound_weight %>% select(coral_id, species, postwound),
+            by = c("coral_id", "species")) %>%
+  left_join(day7_weight %>% select(coral_id, species, day7),
+            by = c("coral_id", "species")) %>%
+  left_join(final_weight %>% select(coral_id, species, final),
+            by = c("coral_id", "species"))
+
+# Calculate growth rates
+growth_data <- growth_data %>%
+  mutate(
+    growth_g = final - postwound,
+    growth_rate_g_day = growth_g / 23,  # 23 days post-wounding
+    growth_normalized = growth_rate_g_day / initial
+  )
+
+# Add treatment info
+growth_data <- growth_data %>%
+  left_join(sample_info %>% select(coral_id, genus, treatment),
+            by = c("coral_id", "species" = "genus"))
+
+# Summary
+growth_data %>%
+  group_by(species, treatment) %>%
+  summarize(
+    mean_growth = mean(growth_rate_g_day, na.rm = TRUE),
+    se_growth = sd(growth_rate_g_day, na.rm = TRUE) / sqrt(n()),
+    .groups = "drop"
+  ) %>%
+  kable(caption = "Growth rates by species and treatment (g/day)", digits = 4) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+## PAM Data (Fv/Fm)
+
+```{r load_pam}
+# Load averaged Fv/Fm data
+pam_data <- read_csv("data/processed/pam/average_fvfm.csv", show_col_types = FALSE) %>%
+  select(-any_of("X")) %>%  # Drop X column if it exists
+  mutate(
+    treatment = as.factor(treatment),
+    genus = as.factor(genus),
+    date = as.factor(date)
+  )
+
+# Convert date to timepoint label
+pam_data <- pam_data %>%
+  mutate(
+    timepoint = case_when(
+      date == "20230603" ~ "Day 7",
+      date == "20230619" ~ "Day 23",
+      TRUE ~ as.character(date)
+    ),
+    timepoint = factor(timepoint, levels = c("Day 7", "Day 23"))
+  )
+
+# Summary
+pam_data %>%
+  group_by(genus, treatment, timepoint) %>%
+  summarize(
+    mean_fvfm = mean(average_fv_fm, na.rm = TRUE),
+    se_fvfm = sd(average_fv_fm, na.rm = TRUE) / sqrt(n()),
+    .groups = "drop"
+  ) %>%
+  kable(caption = "Fv/Fm by genus, treatment, and timepoint", digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+## Surface Area Data
+
+```{r load_surface_area}
+# Load surface area data
+sa_data <- read_csv("data/processed/surface_area/final_surface_areas.csv", show_col_types = FALSE) %>%
+  select(-any_of(c("X", "...1"))) %>%
+  rename(coral_id = coral_number, genus_sa = taxa) %>%
+  mutate(genus_sa = tolower(genus_sa))
+
+# Summary by genus
+sa_data %>%
+  group_by(genus_sa) %>%
+  summarize(
+    mean_sa = mean(CSA_cm2, na.rm = TRUE),
+    sd_sa = sd(CSA_cm2, na.rm = TRUE),
+    min_sa = min(CSA_cm2, na.rm = TRUE),
+    max_sa = max(CSA_cm2, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  kable(caption = "Surface area summary (cm²)", digits = 2) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+## Respirometry Data
+
+```{r load_respiration}
+# Load respiration rate data for Porites
+# Note: Acropora data needs to be processed first
+
+# Function to load rates from a date
+load_rates <- function(date, rate_type, genus = "Porites") {
+  path <- paste0("data/processed/respirometry/", genus, "/", rate_type, "/", date, "/")
+
+  if (!dir.exists(path)) {
+    return(NULL)
+  }
+
+  csv_files <- list.files(path, pattern = "\\.csv$", full.names = TRUE)
+
+  if (length(csv_files) == 0) {
+    return(NULL)
+  }
+
+  data <- read_csv(csv_files[1], show_col_types = FALSE) %>%
+    mutate(date = date, rate_type = rate_type) %>%
+    mutate(coral_id = as.numeric(coral_id))  # Standardize coral_id type
+
+  return(data)
+}
+
+# Load all Porites respiration data
+resp_dates <- c("20230526", "20230528", "20230603", "20230619")
+
+resp_data_list <- list()
+for (date in resp_dates) {
+  resp <- load_rates(date, "Respiration", "Porites")
+  photo <- load_rates(date, "Photosynthesis", "Porites")
+
+  if (!is.null(resp)) resp_data_list[[paste0(date, "_resp")]] <- resp
+  if (!is.null(photo)) resp_data_list[[paste0(date, "_photo")]] <- photo
+}
+
+# Combine all data
+if (length(resp_data_list) > 0) {
+  resp_all <- bind_rows(resp_data_list) %>%
+    clean_names() %>%
+    select(-starts_with("x")) %>%
+    filter(!is.na(coral_id))
+
+  # Convert date to timepoint
+  resp_all <- resp_all %>%
+    mutate(
+      timepoint = case_when(
+        date == "20230526" ~ "Pre-wound",
+        date == "20230528" ~ "Day 1",
+        date == "20230603" ~ "Day 7",
+        date == "20230619" ~ "Day 23",
+        TRUE ~ date
+      ),
+      timepoint_num = case_when(
+        date == "20230526" ~ 0,
+        date == "20230528" ~ 1,
+        date == "20230603" ~ 7,
+        date == "20230619" ~ 23,
+        TRUE ~ as.numeric(NA)
+      ),
+      timepoint = factor(timepoint, levels = c("Pre-wound", "Day 1", "Day 7", "Day 23"))
+    )
+
+  # Add genus and treatment info
+  resp_all <- resp_all %>%
+    mutate(genus = "por") %>%
+    left_join(sample_info %>% select(coral_id, treatment),
+              by = "coral_id")
+
+  cat("Loaded", nrow(resp_all), "respirometry measurements for Porites\n")
+  cat("Dates:", paste(unique(resp_all$date), collapse = ", "), "\n")
+  cat("Rate types:", paste(unique(resp_all$rate_type), collapse = ", "), "\n")
+} else {
+  cat("No respirometry data found\n")
+  resp_all <- NULL
+}
+```
+
+# Exploratory Data Analysis
+
+## Growth Patterns
+
+```{r plot_growth}
+# Growth by treatment and species
+p1 <- ggplot(growth_data, aes(x = treatment, y = growth_rate_g_day, fill = treatment)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, alpha = 0.5, size = 2) +
+  facet_wrap(~species, labeller = labeller(species = c("acr" = "Acropora", "por" = "Porites"))) +
+  scale_fill_manual(values = treatment_colors, labels = treatment_labels, name = "Treatment") +
+  labs(
+    title = "Growth Rate by Treatment and Species",
+    x = "Treatment",
+    y = "Growth Rate (g/day)"
+  ) +
+  theme_few(base_size = 12)
+
+# Normalized growth
+p2 <- ggplot(growth_data, aes(x = treatment, y = growth_normalized, fill = treatment)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, alpha = 0.5, size = 2) +
+  facet_wrap(~species, labeller = labeller(species = c("acr" = "Acropora", "por" = "Porites"))) +
+  scale_fill_manual(values = treatment_colors, labels = treatment_labels, name = "Treatment") +
+  labs(
+    title = "Size-Normalized Growth Rate",
+    x = "Treatment",
+    y = "Normalized Growth Rate (g/day / initial mass)"
+  ) +
+  theme_few(base_size = 12)
+
+print(p1)
+print(p2)
+
+# Save plots
+ggsave("reports/Figures/growth_by_treatment.png", p1, width = 10, height = 6, dpi = 300)
+ggsave("reports/Figures/growth_normalized.png", p2, width = 10, height = 6, dpi = 300)
+```
+
+## PAM Fluorometry (Fv/Fm)
+
+```{r plot_pam}
+# Fv/Fm over time by treatment
+p3 <- ggplot(pam_data, aes(x = timepoint, y = average_fv_fm, fill = treatment)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, alpha = 0.5, size = 2) +
+  facet_wrap(~genus, labeller = labeller(genus = c("acr" = "Acropora", "por" = "Porites"))) +
+  scale_fill_manual(values = treatment_colors, labels = treatment_labels, name = "Treatment") +
+  labs(
+    title = "Photosynthetic Efficiency (Fv/Fm) Over Time",
+    x = "Timepoint",
+    y = "Fv/Fm"
+  ) +
+  theme_few(base_size = 12)
+
+# By treatment across species
+p4 <- ggplot(pam_data, aes(x = genus, y = average_fv_fm, fill = treatment)) +
+  geom_boxplot(alpha = 0.7) +
+  facet_wrap(~timepoint) +
+  scale_fill_manual(values = treatment_colors, labels = treatment_labels, name = "Treatment") +
+  labs(
+    title = "Fv/Fm by Species and Treatment",
+    x = "Genus",
+    y = "Fv/Fm"
+  ) +
+  scale_x_discrete(labels = c("acr" = "Acropora", "por" = "Porites")) +
+  theme_few(base_size = 12)
+
+print(p3)
+print(p4)
+
+ggsave("reports/Figures/fvfm_timeseries.png", p3, width = 10, height = 6, dpi = 300)
+ggsave("reports/Figures/fvfm_by_species.png", p4, width = 10, height = 6, dpi = 300)
+```
+
+## Respirometry Data
+
+```{r plot_respiration}
+if (!is.null(resp_all)) {
+  # Filter out blank corals (coral_id == 0 or 1)
+  resp_filtered <- resp_all %>%
+    filter(!coral_id %in% c(0, 1))
+
+  # Respiration over time
+  resp_only <- resp_filtered %>% filter(rate_type == "Respiration")
+
+  p5 <- ggplot(resp_only, aes(x = timepoint, y = umol_l_sec, fill = treatment)) +
+    geom_boxplot(alpha = 0.7) +
+    geom_jitter(width = 0.2, alpha = 0.3, size = 1) +
+    scale_fill_manual(values = treatment_colors, labels = treatment_labels, name = "Treatment") +
+    labs(
+      title = "Respiration Rate Over Time (Porites)",
+      subtitle = "Negative values indicate O2 consumption",
+      x = "Timepoint",
+      y = "Respiration Rate (µmol O2 / L / sec)"
+    ) +
+    theme_few(base_size = 12)
+
+  # Photosynthesis over time
+  photo_only <- resp_filtered %>% filter(rate_type == "Photosynthesis")
+
+  p6 <- ggplot(photo_only, aes(x = timepoint, y = umol_l_sec, fill = treatment)) +
+    geom_boxplot(alpha = 0.7) +
+    geom_jitter(width = 0.2, alpha = 0.3, size = 1) +
+    scale_fill_manual(values = treatment_colors, labels = treatment_labels, name = "Treatment") +
+    labs(
+      title = "Photosynthesis Rate Over Time (Porites)",
+      subtitle = "Positive values indicate O2 production",
+      x = "Timepoint",
+      y = "Photosynthesis Rate (µmol O2 / L / sec)"
+    ) +
+    theme_few(base_size = 12)
+
+  print(p5)
+  print(p6)
+
+  ggsave("reports/Figures/respiration_timeseries.png", p5, width = 10, height = 6, dpi = 300)
+  ggsave("reports/Figures/photosynthesis_timeseries.png", p6, width = 10, height = 6, dpi = 300)
+
+  # Combined P and R plot
+  p7 <- ggplot(resp_filtered, aes(x = timepoint_num, y = umol_l_sec, color = treatment)) +
+    stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.5, position = position_dodge(width = 1)) +
+    stat_summary(fun = "mean", geom = "point", size = 3, position = position_dodge(width = 1)) +
+    stat_summary(fun = "mean", geom = "line", position = position_dodge(width = 1), aes(group = treatment)) +
+    facet_wrap(~rate_type, scales = "free_y") +
+    scale_color_manual(values = treatment_colors, labels = treatment_labels, name = "Treatment") +
+    labs(
+      title = "O2 Exchange Rates Over Time (Porites)",
+      x = "Days Post-Wounding",
+      y = "Rate (µmol O2 / L / sec)"
+    ) +
+    theme_few(base_size = 12)
+
+  print(p7)
+  ggsave("reports/Figures/O2_rates_combined.png", p7, width = 12, height = 6, dpi = 300)
+}
+```
+
+# Statistical Analysis
+
+## Growth Analysis
+
+```{r growth_stats}
+# Separate analysis for each species
+cat("\n=== PORITES GROWTH ANALYSIS ===\n")
+por_growth <- growth_data %>% filter(species == "por")
+
+# Linear model
+mod_growth_por <- lm(growth_normalized ~ treatment, data = por_growth)
+print(anova(mod_growth_por))
+print(summary(mod_growth_por))
+
+# Pairwise comparisons
+emm_growth_por <- emmeans(mod_growth_por, ~treatment)
+pairs_growth_por <- pairs(emm_growth_por, adjust = "tukey")
+print(pairs_growth_por)
+
+cat("\n=== ACROPORA GROWTH ANALYSIS ===\n")
+acr_growth <- growth_data %>% filter(species == "acr")
+
+mod_growth_acr <- lm(growth_normalized ~ treatment, data = acr_growth)
+print(anova(mod_growth_acr))
+print(summary(mod_growth_acr))
+
+emm_growth_acr <- emmeans(mod_growth_acr, ~treatment)
+pairs_growth_acr <- pairs(emm_growth_acr, adjust = "tukey")
+print(pairs_growth_acr)
+```
+
+## PAM Analysis
+
+```{r pam_stats}
+# Linear mixed model with timepoint as fixed effect and coral as random effect
+cat("\n=== PORITES FV/FM ANALYSIS ===\n")
+por_pam <- pam_data %>% filter(genus == "por")
+
+mod_pam_por <- lmer(average_fv_fm ~ treatment * timepoint + (1|coral_id), data = por_pam)
+print(anova(mod_pam_por, type = 3))
+
+# Pairwise comparisons
+emm_pam_por <- emmeans(mod_pam_por, ~treatment|timepoint)
+print(emm_pam_por)
+
+cat("\n=== ACROPORA FV/FM ANALYSIS ===\n")
+acr_pam <- pam_data %>% filter(genus == "acr")
+
+mod_pam_acr <- lmer(average_fv_fm ~ treatment * timepoint + (1|coral_id), data = acr_pam)
+print(anova(mod_pam_acr, type = 3))
+
+emm_pam_acr <- emmeans(mod_pam_acr, ~treatment|timepoint)
+print(emm_pam_acr)
+```
+
+## Respirometry Analysis
+
+```{r respiration_stats}
+if (!is.null(resp_all)) {
+  # Filter Porites, remove blanks, remove pre-wound timepoint
+  resp_analysis <- resp_filtered %>%
+    filter(timepoint != "Pre-wound")
+
+  # Separate analysis for Respiration
+  cat("\n=== PORITES RESPIRATION ANALYSIS ===\n")
+  resp_resp <- resp_analysis %>% filter(rate_type == "Respiration")
+
+  # Linear mixed model
+  mod_resp <- lmer(umol_l_sec ~ treatment * timepoint_num + (1|coral_id),
+                   data = resp_resp,
+                   contrasts = list(treatment = "contr.sum"))
+  print(anova(mod_resp, type = 3))
+
+  # Pairwise comparisons by timepoint
+  cat("\nPairwise comparisons at each timepoint:\n")
+  for (tp in unique(resp_resp$timepoint)) {
+    cat("\n", tp, ":\n")
+    resp_tp <- resp_resp %>% filter(timepoint == tp)
+    if (nrow(resp_tp) > 0) {
+      mod_tp <- lm(umol_l_sec ~ treatment, data = resp_tp)
+      emm_tp <- emmeans(mod_tp, ~treatment)
+      print(pairs(emm_tp, adjust = "tukey"))
+    }
+  }
+
+  # Analysis for Photosynthesis
+  cat("\n=== PORITES PHOTOSYNTHESIS ANALYSIS ===\n")
+  resp_photo <- resp_analysis %>% filter(rate_type == "Photosynthesis")
+
+  mod_photo <- lmer(umol_l_sec ~ treatment * timepoint_num + (1|coral_id),
+                    data = resp_photo,
+                    contrasts = list(treatment = "contr.sum"))
+  print(anova(mod_photo, type = 3))
+
+  # Pairwise comparisons
+  cat("\nPairwise comparisons at each timepoint:\n")
+  for (tp in unique(resp_photo$timepoint)) {
+    cat("\n", tp, ":\n")
+    photo_tp <- resp_photo %>% filter(timepoint == tp)
+    if (nrow(photo_tp) > 0) {
+      mod_tp <- lm(umol_l_sec ~ treatment, data = photo_tp)
+      emm_tp <- emmeans(mod_tp, ~treatment)
+      print(pairs(emm_tp, adjust = "tukey"))
+    }
+  }
+}
+```
+
+# Summary Tables
+
+## Sample Summary
+
+```{r summary_tables}
+# Overall sample summary
+sample_info %>%
+  group_by(genus, treatment) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  pivot_wider(names_from = genus, values_from = n) %>%
+  kable(caption = "Sample sizes by treatment and genus",
+        col.names = c("Treatment", "Acropora", "Porites")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+## Mean Rates Summary
+
+```{r mean_summary}
+if (!is.null(resp_all)) {
+  # Calculate mean rates by treatment, timepoint, and rate type
+  summary_stats <- resp_filtered %>%
+    group_by(treatment, timepoint, rate_type) %>%
+    summarize(
+      n = n(),
+      mean_rate = mean(umol_l_sec, na.rm = TRUE),
+      se_rate = sd(umol_l_sec, na.rm = TRUE) / sqrt(n()),
+      .groups = "drop"
+    )
+
+  summary_stats %>%
+    pivot_wider(
+      names_from = rate_type,
+      values_from = c(mean_rate, se_rate),
+      names_sep = "_"
+    ) %>%
+    kable(caption = "Mean O2 exchange rates (µmol/L/sec) ± SE", digits = 4) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+    scroll_box(width = "100%", height = "400px")
+}
+```
+
+# Conclusions
+
+## Key Findings
+
+### Growth
+- [Summary of growth results to be filled in after running analysis]
+
+### Photosynthetic Efficiency (Fv/Fm)
+- [Summary of PAM results to be filled in after running analysis]
+
+### Respiration
+- [Summary of respiration results to be filled in after running analysis]
+
+### Photosynthesis
+- [Summary of photosynthesis results to be filled in after running analysis]
+
+## Next Steps
+
+1. Process Acropora respirometry data
+2. Calculate normalized rates (per gram dry mass or per cm² surface area)
+3. Calculate P:R ratios
+4. Examine correlations between physiological measures
+5. Compare temperature effects if variable temperatures present
+
+---
+
+**Analysis completed:** `r Sys.Date()`
+**R version:** `r R.version.string`

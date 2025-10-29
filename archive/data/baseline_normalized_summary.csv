@@ -1,0 +1,19 @@
+species,timepoint,treatment_label,n,mean_change,se_change
+Acropora pulchra,Day 1,Control,4,75.5,18.4
+Acropora pulchra,Day 1,Large Wound,3,-33.4,29.1
+Acropora pulchra,Day 1,Small Wound,2,-1.9,9.6
+Acropora pulchra,Day 23,Control,3,10.1,12.3
+Acropora pulchra,Day 23,Large Wound,3,-33.3,1.6
+Acropora pulchra,Day 23,Small Wound,1,38.7,NA
+Acropora pulchra,Day 7,Control,3,1004.2,533.2
+Acropora pulchra,Day 7,Large Wound,4,-53.3,13.6
+Acropora pulchra,Day 7,Small Wound,3,-11.3,18.2
+Porites spp.,Day 1,Control,4,-14.7,23
+Porites spp.,Day 1,Large Wound,5,-24.9,22.5
+Porites spp.,Day 1,Small Wound,5,-54.8,17.6
+Porites spp.,Day 23,Control,5,6.4,11.2
+Porites spp.,Day 23,Large Wound,5,-18.4,18.5
+Porites spp.,Day 23,Small Wound,5,6.7,17.9
+Porites spp.,Day 7,Control,5,-145.8,163.7
+Porites spp.,Day 7,Large Wound,5,14.9,9.3
+Porites spp.,Day 7,Small Wound,4,24.7,10.2

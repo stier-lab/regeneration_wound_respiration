@@ -1,4 +1,33 @@
-.Rproj.user
+# R specific
+.Rproj.user/
 .Rhistory
 .RData
 .Ruserdata
+*.Rproj
+
+# Processed data (can be regenerated from raw)
+data/processed/
+
+# Reports (can be regenerated)
+reports/*.html
+reports/Figures/
+
+# Archive (optional - original structure preserved for reference)
+# Uncomment if you don't want to track archive
+# archive/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# R output
+Rplots.pdf
+*.pdf
+
+# Script output
+update_paths.sh
