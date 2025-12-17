@@ -203,7 +203,7 @@ We examined oxygen flux during wound healing in two morphologically distinct cor
 
 <div class="highlight-box">
 **Study Timeline:** May-June 2023
-**Location:** CRIOBE Research Station, Moorea, French Polynesia
+**Location:** GUMP Research Station, Moorea, French Polynesia
 **Species:** _Porites spp._ (n=18) and _Acropora pulchra_ (n=18)
 **Treatments:** Control (no wound), Small wound (6.35 mm diameter), Large wound (12.7 mm diameter)
 **Replication:** 6 colonies per treatment per species
