@@ -118,3 +118,8 @@ This work is licensed under CC BY 4.0. You are free to share and adapt the mater
 **Version**: 1.0.0
 **Last Updated**: October 2025
 **DOI**: [To be assigned upon publication]
+
+<!-- lab-xref -->
+## Lab cross-reference
+
+**Drive folder:** `…/Coral-Regeneration/Projects/5. Wound_Respiration_2023/` — Project **P5** (Wound Respiration, Study 2). Publication repo: [`stier-lab/coral-wound-tradeoffs`](https://github.com/stier-lab/coral-wound-tradeoffs) (paired with P2 Study 1).
